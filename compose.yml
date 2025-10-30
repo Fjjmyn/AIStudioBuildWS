@@ -1,0 +1,11 @@
+services:
+  aistudio-websocket-app:
+    image: aistudio-websocket
+    build: .
+    container_name: aistudio-websocket-app
+    env_file:
+      - .env
+    volumes:
+      - ./cookies:/app/cookies:rw
+      - ./logs:/app/logs:rw
+    restart: unless-stopped

@@ -1,0 +1,31 @@
+# Git repository files
+.git
+.gitignore
+
+# Docker files
+Dockerfile
+compose.yml
+.dockerignore
+
+# Environment configuration files
+# These are injected via Docker Compose, not baked into the image.
+.env
+.env.example
+
+# Mounted directories
+# These are managed as volumes and should not be part of the image.
+cookies/
+logs/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE and editor configuration
+.vscode/
+.idea/
+
+# Claude guidance file
+CLAUDE.md
