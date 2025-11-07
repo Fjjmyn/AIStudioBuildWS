@@ -80,7 +80,7 @@ class CookieManager:
 
             if not env_value:
                 if cookie_index == 1 and self.logger:
-                    self.logger.info(f"未检测到任何 {env_var_name} 环境变量")
+                    self.logger.info(f"未检测到任何 USER_COOKIE 环境变量")
                 break
 
             source = CookieSource(
