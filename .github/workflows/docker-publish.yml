@@ -8,7 +8,7 @@ on:
 env:
   # TODO: 将此处修改为你的 Docker Hub 镜像名，格式: 用户名/仓库名
   # 例如: your_dockerhub_username/aistudio-build
-  IMAGE_NAME: fjjmyn/AIStudioBuildWS
+  IMAGE_NAME: fjjmyn/ai-studiobuild-ws
 
 jobs:
   build-and-push:
