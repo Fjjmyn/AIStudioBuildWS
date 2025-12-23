@@ -1,0 +1,31 @@
+name: Docker Build and Push
+
+on:
+  push:
+    branches: [ "main", "master" ] # 监听主分支代码变动
+  workflow_dispatch: # 允许手动点击按钮触发
+
+env:
+  # TODO: 将此处修改为你的 Docker Hub 镜像名，格式: 用户名/仓库名
+  # 例如: your_dockerhub_username/aistudio-build
+  IMAGE_NAME: fjjmyn/AIStudioBuildWS
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:latest
