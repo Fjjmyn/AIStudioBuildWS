@@ -41,23 +41,30 @@ def run_browser_instance(config, shutdown_event=None):
 
     # 使用CookieManager加载Cookie
     cookie_manager = CookieManager(logger)
-    all_cookies = []
 
     try:
         # 直接使用CookieSource对象加载Cookie
         cookies = cookie_manager.load_cookies(cookie_source)
-        all_cookies.extend(cookies)
 
     except Exception as e:
         logger.error(f"从Cookie来源加载时出错: {e}")
         return
 
     # 3. 检查是否有任何Cookie可用
-    if not all_cookies:
-        logger.error("错误: 没有可用的Cookie（既没有有效的JSON文件，也没有环境变量）")
+    # ✅ 支持两种格式：完整 storageState (dict) 或 cookies 列表 (list)
+    if isinstance(cookies, dict):
+        # storageState 格式：检查是否有 cookies 字段
+        if not cookies.get('cookies'):
+            logger.error("错误: storageState 中没有可用的 Cookie")
+            return
+    elif isinstance(cookies, list):
+        # cookies 列表格式：检查是否为空
+        if not cookies:
+            logger.error("错误: 没有可用的 Cookie 列表")
+            return
+    else:
+        logger.error(f"错误: 未知的 Cookie 格式: {type(cookies)}")
         return
-
-    cookies = all_cookies
 
     headless_mode = parse_headless_mode(headless_setting)
     launch_options = {"headless": headless_mode}
