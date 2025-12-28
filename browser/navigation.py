@@ -60,17 +60,17 @@ def handle_successful_navigation(page: Page, logger, cookie_file_config, shutdow
     # 检查并处理弹窗
     handle_popup_dialog(page, logger=logger)
 
-    # 保存登录成功截图
-    try:
-        from datetime import datetime
-        screenshot_dir = logs_dir()
-        ensure_dir(screenshot_dir)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = os.path.join(screenshot_dir, f"SUCCESS_{cookie_file_config}_{timestamp}.png")
-        page.screenshot(path=screenshot_path)
-        logger.info(f"已保存登录成功截图: {screenshot_path}")
-    except Exception as e:
-        logger.warning(f"保存截图失败: {e}")
+    # 保存登录成功截图（Cloud Run 无本地存储，已禁用）
+    # try:
+    #     from datetime import datetime
+    #     screenshot_dir = logs_dir()
+    #     ensure_dir(screenshot_dir)
+    #     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #     screenshot_path = os.path.join(screenshot_dir, f"SUCCESS_{cookie_file_config}_{timestamp}.png")
+    #     page.screenshot(path=screenshot_path)
+    #     logger.info(f"已保存登录成功截图: {screenshot_path}")
+    # except Exception as e:
+    #     logger.warning(f"保存截图失败: {e}")
 
     if cookie_validator:
         logger.info("Cookie验证器已创建，将定期验证Cookie有效性")

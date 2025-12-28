@@ -21,6 +21,9 @@ def run_browser_instance(config, shutdown_event=None):
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
     # 忽略 SIGINT (Ctrl+C)，让主进程统一处理
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+    
+    # ✅ Cloud Run 无本地存储，禁用截图和 HTML 保存
+    enable_screenshots = os.getenv("ENABLE_SCREENSHOTS", "false").lower() == "true"
 
     cookie_source = config.get('cookie_source')
     if not cookie_source:
@@ -120,8 +123,9 @@ def run_browser_instance(config, shutdown_event=None):
                         logger.info(f"导航初步成功，服务器响应状态码: {response.status} {response.status_text}")
                         if not response.ok: # response.ok 检查状态码是否在 200-299 范围内
                             logger.warning(f"警告：页面加载成功，但HTTP状态码表示错误: {response.status}")
-                            # 即使状态码错误，也保存快照以供分析
-                            page.screenshot(path=os.path.join(screenshot_dir, f"WARN_http_status_{response.status}_{diagnostic_tag}.png"))
+                            # 即使状态码错误，也保存快照以供分析（仅在启用时）
+                            if enable_screenshots:
+                                page.screenshot(path=os.path.join(screenshot_dir, f"WARN_http_status_{response.status}_{diagnostic_tag}.png"))
                     else:
                         # 对于非http/https的导航（如 about:blank），response可能为None
                         logger.warning("page.goto 未返回响应对象，可能是一个非HTTP导航")
@@ -130,20 +134,21 @@ def run_browser_instance(config, shutdown_event=None):
                     # 这是最常见的错误：超时
                     logger.error(f"导航到 {mask_url_for_logging(expected_url)} 超时 (超过90秒)")
                     logger.error("可能原因：网络连接缓慢、目标网站服务器无响应、代理问题、或页面资源被阻塞")
-                    # 尝试保存诊断信息
-                    try:
-                        # 截图对于看到页面卡在什么状态非常有帮助（例如，空白页、加载中、Chrome错误页）
-                        screenshot_path = os.path.join(screenshot_dir, f"FAIL_timeout_{diagnostic_tag}.png")
-                        page.screenshot(path=screenshot_path, full_page=True)
-                        logger.info(f"已截取超时时的屏幕快照: {screenshot_path}")
-                        
-                        # 保存HTML可以帮助分析DOM结构，即使在无头模式下也很有用
-                        html_path = os.path.join(screenshot_dir, f"FAIL_timeout_{diagnostic_tag}.html")
-                        with open(html_path, 'w', encoding='utf-8') as f:
-                            f.write(page.content())
-                        logger.info(f"已保存超时时的页面HTML: {html_path}")
-                    except Exception as diag_e:
-                        logger.error(f"在尝试进行超时诊断（截图/保存HTML）时发生额外错误: {diag_e}")
+                    # 尝试保存诊断信息（仅在启用时）
+                    if enable_screenshots:
+                        try:
+                            # 截图对于看到页面卡在什么状态非常有帮助（例如，空白页、加载中、Chrome错误页）
+                            screenshot_path = os.path.join(screenshot_dir, f"FAIL_timeout_{diagnostic_tag}.png")
+                            page.screenshot(path=screenshot_path, full_page=True)
+                            logger.info(f"已截取超时时的屏幕快照: {screenshot_path}")
+                            
+                            # 保存HTML可以帮助分析DOM结构，即使在无头模式下也很有用
+                            html_path = os.path.join(screenshot_dir, f"FAIL_timeout_{diagnostic_tag}.html")
+                            with open(html_path, 'w', encoding='utf-8') as f:
+                                f.write(page.content())
+                            logger.info(f"已保存超时时的页面HTML: {html_path}")
+                        except Exception as diag_e:
+                            logger.error(f"在尝试进行超时诊断（截图/保存HTML）时发生额外错误: {diag_e}")
                     return # 超时后，后续操作无意义，直接终止
 
                 except PlaywrightError as e:
@@ -180,7 +185,8 @@ def run_browser_instance(config, shutdown_event=None):
                 # ... 你原有的URL检查逻辑保持不变 ...
                 if "accounts.google.com/v3/signin/identifier" in final_url:
                     logger.error("检测到Google登录页面（需要输入邮箱）。Cookie已完全失效")
-                    page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_identifier_page_{diagnostic_tag}.png"))
+                    if enable_screenshots:
+                        page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_identifier_page_{diagnostic_tag}.png"))
                     return
 
                 # 提取路径部分进行匹配（允许域名重定向）
@@ -200,7 +206,8 @@ def run_browser_instance(config, shutdown_event=None):
                         logger.info("加载指示器已消失。页面已完成异步加载")
                     except TimeoutError:
                         logger.error("页面加载指示器在30秒内未消失。页面可能已卡住")
-                        page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_spinner_stuck_{diagnostic_tag}.png"))
+                        if enable_screenshots:
+                            page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_spinner_stuck_{diagnostic_tag}.png"))
                         raise KeepAliveError("页面加载指示器超时")
 
                     # --- 现在我们可以安全地检查错误消息 ---
@@ -211,8 +218,9 @@ def run_browser_instance(config, shutdown_event=None):
                     # 这里我们只需要很短的超时时间，因为页面应该是稳定的。
                     if auth_error_locator.is_visible(timeout=2000):
                         logger.error(f"检测到认证失败的错误横幅: '{auth_error_text}'. Cookie已过期或无效")
-                        screenshot_path = os.path.join(screenshot_dir, f"FAIL_auth_error_banner_{diagnostic_tag}.png")
-                        page.screenshot(path=screenshot_path)
+                        if enable_screenshots:
+                            screenshot_path = os.path.join(screenshot_dir, f"FAIL_auth_error_banner_{diagnostic_tag}.png")
+                            page.screenshot(path=screenshot_path)
                         
                         # html_path = os.path.join(screenshot_dir, f"FAIL_auth_error_banner_{diagnostic_tag}.html")
                         # with open(html_path, 'w', encoding='utf-8') as f:
@@ -227,7 +235,8 @@ def run_browser_instance(config, shutdown_event=None):
                     
                     if login_button_cn.is_visible(timeout=1000) or login_button_en.is_visible(timeout=1000):
                         logger.error("页面上仍显示'登录'按钮。Cookie无效")
-                        page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_login_button_visible_{diagnostic_tag}.png"))
+                        if enable_screenshots:
+                            page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_login_button_visible_{diagnostic_tag}.png"))
                         return
 
                     # --- 如果所有检查都通过，我们假设成功 ---
@@ -236,14 +245,16 @@ def run_browser_instance(config, shutdown_event=None):
                     handle_successful_navigation(page, logger, diagnostic_tag, shutdown_event, cookie_validator)
                 elif "accounts.google.com/v3/signin/accountchooser" in final_url:
                     logger.warning("检测到Google账户选择页面。登录失败或Cookie已过期")
-                    page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_chooser_click_failed_{diagnostic_tag}.png"))
+                    if enable_screenshots:
+                        page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_chooser_click_failed_{diagnostic_tag}.png"))
                     return
                 else:
                     logger.error(f"导航到了意外的URL")
                     logger.error(f"  预期路径: {mask_path_for_logging(expected_path)}")
                     logger.error(f"  最终路径: {mask_path_for_logging(final_path)}")
                     logger.error(f"  最终URL: {mask_url_for_logging(final_url)}")
-                    page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_unexpected_url_{diagnostic_tag}.png"))
+                    if enable_screenshots:
+                        page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_unexpected_url_{diagnostic_tag}.png"))
                     return
 
                 # 如果运行到这里且没有异常，表示实例正常结束（例如收到关闭信号）
