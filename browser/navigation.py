@@ -133,14 +133,14 @@ def handle_successful_navigation(page: Page, logger, cookie_file_config, shutdow
                 time.sleep(1)
 
         except Exception as e:
-            logger.error(f"在保持活动循环中出错: {e}")
-            # 在保持活动循环中出错时截屏
-            try:
-                screenshot_dir = logs_dir()
-                ensure_dir(screenshot_dir)
-                screenshot_filename = os.path.join(screenshot_dir, f"FAIL_keep_alive_error_{cookie_file_config}.png")
-                page.screenshot(path=screenshot_filename, full_page=True)
-                logger.info(f"已在保持活动循环出错时截屏: {screenshot_filename}")
-            except Exception as screenshot_e:
-                logger.error(f"在保持活动循环出错时截屏失败: {screenshot_e}")
-            raise KeepAliveError(f"在保持活动循环时出错: {e}")
+             logger.error(f"在保持活动循环中出错: {e}")
+             # 禁用截图以节省 ephemeral storage（claw run 限制 100Mi）
+             # try:
+             #     screenshot_dir = logs_dir()
+             #     ensure_dir(screenshot_dir)
+             #     screenshot_filename = os.path.join(screenshot_dir, f"FAIL_keep_alive_error_{cookie_file_config}.png")
+             #     page.screenshot(path=screenshot_filename, full_page=True)
+             #     logger.info(f"已在保持活动循环出错时截屏: {screenshot_filename}")
+             # except Exception as screenshot_e:
+             #     logger.error(f"在保持活动循环出错时截屏失败: {screenshot_e}")
+             raise KeepAliveError(f"在保持活动循环时出错: {e}")

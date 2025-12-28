@@ -123,9 +123,9 @@ def run_browser_instance(config, shutdown_event=None):
                         logger.info(f"导航初步成功，服务器响应状态码: {response.status} {response.status_text}")
                         if not response.ok: # response.ok 检查状态码是否在 200-299 范围内
                             logger.warning(f"警告：页面加载成功，但HTTP状态码表示错误: {response.status}")
-                            # 即使状态码错误，也保存快照以供分析（仅在启用时）
-                            if enable_screenshots:
-                                page.screenshot(path=os.path.join(screenshot_dir, f"WARN_http_status_{response.status}_{diagnostic_tag}.png"))
+                             # 禁用截图以节省 ephemeral storage
+                             # if enable_screenshots:
+                             #     page.screenshot(path=os.path.join(screenshot_dir, f"WARN_http_status_{response.status}_{diagnostic_tag}.png"))
                     else:
                         # 对于非http/https的导航（如 about:blank），response可能为None
                         logger.warning("page.goto 未返回响应对象，可能是一个非HTTP导航")
@@ -142,11 +142,12 @@ def run_browser_instance(config, shutdown_event=None):
                             page.screenshot(path=screenshot_path, full_page=True)
                             logger.info(f"已截取超时时的屏幕快照: {screenshot_path}")
                             
-                            # 保存HTML可以帮助分析DOM结构，即使在无头模式下也很有用
-                            html_path = os.path.join(screenshot_dir, f"FAIL_timeout_{diagnostic_tag}.html")
-                            with open(html_path, 'w', encoding='utf-8') as f:
-                                f.write(page.content())
-                            logger.info(f"已保存超时时的页面HTML: {html_path}")
+                            # 禁用 HTML 保存以节省 ephemeral storage
+                            # page.content() 可能返回 50-200MB 的大型 HTML，会直接爆掉 100Mi 限制
+                            # html_path = os.path.join(screenshot_dir, f"FAIL_timeout_{diagnostic_tag}.html")
+                            # with open(html_path, 'w', encoding='utf-8') as f:
+                            #     f.write(page.content())
+                            # logger.info(f"已保存超时时的页面HTML: {html_path}")
                         except Exception as diag_e:
                             logger.error(f"在尝试进行超时诊断（截图/保存HTML）时发生额外错误: {diag_e}")
                     return # 超时后，后续操作无意义，直接终止
@@ -165,13 +166,13 @@ def run_browser_instance(config, shutdown_event=None):
                     elif "net::ERR_INTERNET_DISCONNECTED" in error_message:
                         logger.error("排查建议：检查本机的网络连接")
                     
-                    # 同样，尝试截图，尽管此时页面可能完全无法访问
-                    try:
-                        screenshot_path = os.path.join(screenshot_dir, f"FAIL_network_error_{diagnostic_tag}.png")
-                        page.screenshot(path=screenshot_path)
-                        logger.info(f"已截取网络错误时的屏幕快照: {screenshot_path}")
-                    except Exception as diag_e:
-                        logger.error(f"在尝试进行网络错误诊断（截图）时发生额外错误: {diag_e}")
+                    # 禁用截图以节省 ephemeral storage
+                     # try:
+                     #     screenshot_path = os.path.join(screenshot_dir, f"FAIL_network_error_{diagnostic_tag}.png")
+                     #     page.screenshot(path=screenshot_path)
+                     #     logger.info(f"已截取网络错误时的屏幕快照: {screenshot_path}")
+                     # except Exception as diag_e:
+                     #     logger.error(f"在尝试进行网络错误诊断（截图）时发生额外错误: {diag_e}")
                     return # 网络错误，终止
 
                 # --- 如果导航没有抛出异常，继续执行后续逻辑 ---
@@ -185,8 +186,9 @@ def run_browser_instance(config, shutdown_event=None):
                 # ... 你原有的URL检查逻辑保持不变 ...
                 if "accounts.google.com/v3/signin/identifier" in final_url:
                     logger.error("检测到Google登录页面（需要输入邮箱）。Cookie已完全失效")
-                    if enable_screenshots:
-                        page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_identifier_page_{diagnostic_tag}.png"))
+                    # 禁用截图
+                    # if enable_screenshots:
+                    #     page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_identifier_page_{diagnostic_tag}.png"))
                     return
 
                 # 提取路径部分进行匹配（允许域名重定向）
