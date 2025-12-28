@@ -83,8 +83,16 @@ def run_browser_instance(config, shutdown_event=None):
 
         try:
             with Camoufox(**launch_options) as browser:
-                context = browser.new_context()
-                context.add_cookies(cookies)
+                # ✅ 检测是否是完整的 storageState (包含 origins) 还是仅 cookies 列表
+                if isinstance(cookies, dict) and 'origins' in cookies:
+                    # ais2api 格式的完整 storageState
+                    logger.info("使用完整的 storageState 初始化浏览器上下文（包含 localStorage 和 sessionStorage）")
+                    context = browser.new_context(storage_state=cookies)
+                else:
+                    # 仅 cookies 列表（向后兼容）
+                    context = browser.new_context()
+                    context.add_cookies(cookies)
+                
                 page = context.new_page()
 
                 # 创建Cookie验证器
