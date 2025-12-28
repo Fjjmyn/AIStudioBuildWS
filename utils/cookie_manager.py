@@ -99,15 +99,16 @@ class CookieManager:
         self._detected_sources = sources
         return sources
 
-    def load_cookies(self, source: CookieSource) -> List[Dict]:
+    def load_cookies(self, source: CookieSource):
         """
-        从指定来源加载Cookie数据
+        从指定来源加载Cookie数据或完整的storageState
 
         Args:
             source: Cookie来源对象
 
         Returns:
-            Playwright兼容的cookie列表
+            - 如果是storageState格式：返回完整的dict {cookies, origins}
+            - 否则：返回Playwright兼容的cookie列表
         """
         cache_key = str(source)
 
@@ -132,8 +133,14 @@ class CookieManager:
             # 缓存结果
             self._cookie_cache[cache_key] = cookies
 
-            if self.logger:
-                self.logger.info(f"从 {source.display_name} 加载了 {len(cookies)} 个 Cookie 数据")
+            # 日志输出
+            if isinstance(cookies, dict) and 'origins' in cookies:
+                cookie_count = len(cookies.get('cookies', []))
+                if self.logger:
+                    self.logger.info(f"从 {source.display_name} 加载了完整的 storageState (包含 {cookie_count} 个 cookie 和 localStorage 数据)")
+            else:
+                if self.logger:
+                    self.logger.info(f"从 {source.display_name} 加载了 {len(cookies)} 个 Cookie 数据")
 
         except Exception as e:
             if self.logger:
@@ -142,8 +149,13 @@ class CookieManager:
 
         return cookies
 
-    def _load_from_file(self, filename: str) -> List[Dict]:
-        """从文件加载 Cookie，自动识别 JSON 或 KV 格式"""
+    def _load_from_file(self, filename: str):
+        """
+        从文件加载 Cookie，自动识别格式：
+        1. ais2api 格式的 storageState (包含 cookies 和 origins)
+        2. Cookie-Editor 导出的 JSON 数组
+        3. KV 格式的纯 Cookie 字符串
+        """
         cookie_path = cookies_dir() / filename
 
         if not os.path.exists(cookie_path):
@@ -155,7 +167,16 @@ class CookieManager:
         # 尝试解析为 JSON
         try:
             cookies_from_file = json.loads(file_content)
-            # JSON 解析成功，使用自动转换函数
+            
+            # ✅ 检测 ais2api 的 storageState 格式 (包含 cookies 和 origins)
+            if isinstance(cookies_from_file, dict) and 'cookies' in cookies_from_file and 'origins' in cookies_from_file:
+                if self.logger:
+                    self.logger.info(f"文件 {filename} 识别为 ais2api storageState 格式 (包含 origins)")
+                return cookies_from_file  # 直接返回完整的 storageState
+            
+            # 其他 JSON 格式，使用自动转换函数
+            if self.logger:
+                self.logger.debug(f"文件 {filename} 识别为 Cookie-Editor JSON 格式")
             return auto_convert_to_playwright(
                 cookies_from_file,
                 default_domain=".google.com",
@@ -171,8 +192,13 @@ class CookieManager:
                 logger=self.logger
             )
 
-    def _load_from_env(self, env_var_name: str) -> List[Dict]:
-        """从环境变量加载 Cookie，自动识别 JSON 或 KV 格式"""
+    def _load_from_env(self, env_var_name: str):
+        """
+        从环境变量加载 Cookie，自动识别格式：
+        1. ais2api 格式的 storageState (包含 cookies 和 origins)
+        2. Cookie-Editor 导出的 JSON 数组
+        3. KV 格式的纯 Cookie 字符串
+        """
         env_value = clean_env_value(os.getenv(env_var_name))
 
         if not env_value:
@@ -181,7 +207,16 @@ class CookieManager:
         # 尝试解析为 JSON
         try:
             cookies_from_env = json.loads(env_value)
-            # JSON 解析成功，使用自动转换函数
+            
+            # ✅ 检测 ais2api 的 storageState 格式 (包含 cookies 和 origins)
+            if isinstance(cookies_from_env, dict) and 'cookies' in cookies_from_env and 'origins' in cookies_from_env:
+                if self.logger:
+                    self.logger.info(f"环境变量 {env_var_name} 识别为 ais2api storageState 格式 (包含 origins)")
+                return cookies_from_env  # 直接返回完整的 storageState
+            
+            # 其他 JSON 格式，使用自动转换函数
+            if self.logger:
+                self.logger.debug(f"环境变量 {env_var_name} 识别为 Cookie-Editor JSON 格式")
             return auto_convert_to_playwright(
                 cookies_from_env,
                 default_domain=".google.com",
